@@ -97,7 +97,7 @@ from dagster._core.storage.sqlalchemy_compat import (
     db_select,
     db_subquery,
 )
-from dagster._core.storage.utils import OrderBy
+from dagster._core.storage.utils import AssetKeyOrdering
 from dagster._serdes import deserialize_value, serialize_value
 from dagster._serdes.errors import DeserializationError
 from dagster._serdes.serdes import deserialize_values
@@ -1367,7 +1367,7 @@ class SqlEventLogStorage(EventLogStorage):
         prefix: Optional[Sequence[str]] = None,
         limit: Optional[int] = None,
         cursor: Optional[str] = None,
-        order_by: Optional[OrderBy] = None,
+        order_by: AssetKeyOrdering = AssetKeyOrdering.DEFAULT,
     ) -> Sequence[AssetKey]:
         rows = self._fetch_asset_rows(prefix=prefix, limit=limit, cursor=cursor, order_by=order_by)
         asset_keys = [AssetKey.from_db_string(row["asset_key"]) for row in rows]
@@ -1391,7 +1391,7 @@ class SqlEventLogStorage(EventLogStorage):
         prefix: Optional[Sequence[str]] = None,
         limit: Optional[int] = None,
         cursor: Optional[str] = None,
-        order_by: Optional[OrderBy] = None,
+        order_by: AssetKeyOrdering = AssetKeyOrdering.DEFAULT,
     ) -> Sequence[SqlAlchemyRow]:
         # fetches rows containing asset_key, last_materialization, and asset_details from the DB,
         # applying the filters specified in the arguments.
@@ -1434,7 +1434,7 @@ class SqlEventLogStorage(EventLogStorage):
         prefix: Optional[Sequence[str]] = None,
         limit: Optional[int] = None,
         cursor=None,
-        order_by: Optional[OrderBy] = None,
+        order_by: AssetKeyOrdering = AssetKeyOrdering.DEFAULT,
     ) -> tuple[Iterable[SqlAlchemyRow], bool, Optional[str]]:
         # fetches rows containing asset_key, last_materialization, and asset_details from the DB,
         # applying the filters specified in the arguments.  Does not guarantee that the number of
@@ -1462,15 +1462,7 @@ class SqlEventLogStorage(EventLogStorage):
             columns.append(AssetKeyTable.c.last_materialization_timestamp)
             columns.append(AssetKeyTable.c.wipe_timestamp)
 
-        order_clause = AssetKeyTable.c.asset_key.asc()
-        if order_by is not None:
-            order_clause = (
-                getattr(AssetKeyTable.c, order_by.column_name).asc()
-                if order_by.ascending
-                else getattr(AssetKeyTable.c, order_by.column_name).desc()
-            )
-
-        query = db_select(columns).order_by(order_clause)
+        query = db_select(columns).order_by(order_by.to_db_order_by())
         query = self._apply_asset_filter_to_query(query, asset_keys, prefix, limit, cursor)
 
         if self.has_secondary_index(ASSET_KEY_INDEX_COLS):
