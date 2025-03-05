@@ -1,7 +1,7 @@
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import click
 
@@ -29,28 +29,30 @@ def utils_group():
     """Assorted utility commands."""
 
 
-def _generate_component_schema(dg_context: DgContext) -> Path:
-    schema_folder = dg_context.root_path / _DEFAULT_SCHEMA_FOLDER_NAME
-    schema_folder.mkdir(exist_ok=True)
+def _generate_component_schema(dg_context: DgContext, output_path: Optional[Path] = None) -> Path:
+    schema_path = output_path
+    if not schema_path:
+        schema_folder = dg_context.root_path / _DEFAULT_SCHEMA_FOLDER_NAME
+        schema_folder.mkdir(exist_ok=True)
 
-    schema_path = schema_folder / "schema.json"
+        schema_path = schema_folder / "schema.json"
+
     schema_path.write_text(json.dumps(all_components_schema_from_dg_context(dg_context), indent=2))
-
     return schema_path
 
 
 @utils_group.command(name="generate-component-schema", cls=DgClickCommand)
 @dg_global_options
-@click.pass_context
+@click.option("--output-path", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 def generate_component_schema(
-    context: click.Context,
+    output_path: Optional[str],
     **global_options: object,
 ) -> None:
     """Generates a JSON schema for the component types installed in the current code location."""
-    cli_config = normalize_cli_config(global_options, context)
+    cli_config = normalize_cli_config(global_options, click.get_current_context())
     dg_context = DgContext.for_project_environment(Path.cwd(), cli_config)
 
-    _generate_component_schema(dg_context)
+    _generate_component_schema(dg_context, Path(output_path) if output_path else None)
 
 
 @utils_group.command(name="configure-editor", cls=DgClickCommand)
