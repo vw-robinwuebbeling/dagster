@@ -48,7 +48,7 @@ def generate_component_schema(
     output_path: Optional[str],
     **global_options: object,
 ) -> None:
-    """Generates a JSON schema for the component types installed in the current code location."""
+    """Generates a JSON schema for the component types installed in the current project."""
     cli_config = normalize_cli_config(global_options, click.get_current_context())
     dg_context = DgContext.for_project_environment(Path.cwd(), cli_config)
 
