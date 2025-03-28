@@ -506,6 +506,7 @@ export type AssetNode = {
   opVersion: Maybe<Scalars['String']['output']>;
   owners: Array<AssetOwner>;
   partitionDefinition: Maybe<PartitionDefinition>;
+  partitionKeyConnection: Maybe<PartitionKeyConnection>;
   partitionKeys: Array<Scalars['String']['output']>;
   partitionKeysByDimension: Array<DimensionPartitionKeys>;
   partitionStats: Maybe<PartitionStats>;
@@ -556,6 +557,12 @@ export type AssetNodeLatestMaterializationByPartitionArgs = {
 
 export type AssetNodeLatestRunForPartitionArgs = {
   partition: Scalars['String']['input'];
+};
+
+export type AssetNodePartitionKeyConnectionArgs = {
+  ascending: Scalars['Boolean']['input'];
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit: Scalars['Int']['input'];
 };
 
 export type AssetNodePartitionKeysByDimensionArgs = {
@@ -3292,6 +3299,13 @@ export enum PartitionDefinitionType {
   STATIC = 'STATIC',
   TIME_WINDOW = 'TIME_WINDOW',
 }
+
+export type PartitionKeyConnection = {
+  __typename: 'PartitionKeyConnection';
+  cursor: Scalars['String']['output'];
+  hasMore: Scalars['Boolean']['output'];
+  results: Array<Scalars['String']['output']>;
+};
 
 export type PartitionKeyRange = {
   __typename: 'PartitionKeyRange';
@@ -6868,6 +6882,12 @@ export const buildAssetNode = (
         : relationshipsToOmit.has('PartitionDefinition')
           ? ({} as PartitionDefinition)
           : buildPartitionDefinition({}, relationshipsToOmit),
+    partitionKeyConnection:
+      overrides && overrides.hasOwnProperty('partitionKeyConnection')
+        ? overrides.partitionKeyConnection!
+        : relationshipsToOmit.has('PartitionKeyConnection')
+          ? ({} as PartitionKeyConnection)
+          : buildPartitionKeyConnection({}, relationshipsToOmit),
     partitionKeys:
       overrides && overrides.hasOwnProperty('partitionKeys') ? overrides.partitionKeys! : [],
     partitionKeysByDimension:
@@ -11316,6 +11336,20 @@ export const buildPartitionDefinition = (
       overrides && overrides.hasOwnProperty('type')
         ? overrides.type!
         : PartitionDefinitionType.DYNAMIC,
+  };
+};
+
+export const buildPartitionKeyConnection = (
+  overrides?: Partial<PartitionKeyConnection>,
+  _relationshipsToOmit: Set<string> = new Set(),
+): {__typename: 'PartitionKeyConnection'} & PartitionKeyConnection => {
+  const relationshipsToOmit: Set<string> = new Set(_relationshipsToOmit);
+  relationshipsToOmit.add('PartitionKeyConnection');
+  return {
+    __typename: 'PartitionKeyConnection',
+    cursor: overrides && overrides.hasOwnProperty('cursor') ? overrides.cursor! : 'quia',
+    hasMore: overrides && overrides.hasOwnProperty('hasMore') ? overrides.hasMore! : false,
+    results: overrides && overrides.hasOwnProperty('results') ? overrides.results! : [],
   };
 };
 
