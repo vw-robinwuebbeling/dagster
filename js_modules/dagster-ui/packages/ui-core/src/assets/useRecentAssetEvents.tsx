@@ -85,7 +85,7 @@ export function useRecentAssetEvents(
       variables: {
         assetKey: {path: assetKey?.path || []},
         limit,
-        eventTypeSelector: eventTypeSelector || MaterializationHistoryEventTypeSelector.ALL,
+        eventTypeSelector,
       },
     },
   );
