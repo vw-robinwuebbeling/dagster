@@ -1,0 +1,29 @@
+.marketplaceLink {
+  background-color: var(--color-nav-button);
+  color: var(--color-nav-text-selected);
+  transition:
+    background-color 0.1s linear,
+    color 0.1s linear;
+  padding: 0 12px;
+  border-radius: 16px;
+  text-decoration: none;
+  height: 32px;
+}
+
+.marketplaceLink:hover {
+  background-color: var(--color-nav-button-hover);
+  color: var(--color-nav-text-hover);
+  text-decoration: none;
+}
+
+.marketplaceLink div[role='img'] {
+  transition: background-color 0.1s linear;
+}
+
+.marketplaceLink:hover div[role='img'] {
+  background-color: var(--color-nav-text);
+}
+
+.marketplaceLinkContent {
+  height: 100%;
+}

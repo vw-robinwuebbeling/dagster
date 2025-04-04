@@ -4,7 +4,9 @@ import {NavLink} from 'react-router-dom';
 import {AppTopNavRightOfLogo} from 'shared/app/AppTopNav/AppTopNavRightOfLogo.oss';
 import styled from 'styled-components';
 
+import {useFeatureFlags} from '../Flags';
 import {GhostDaggyWithTooltip} from './GhostDaggy';
+import {MarketplaceLink} from '../../integrations/MarketplaceLink';
 import {
   reloadFnForWorkspace,
   useRepositoryLocationReload,
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export const AppTopNav = ({children, allowGlobalReload = false}: Props) => {
+  const {flagMarketplace} = useFeatureFlags();
   const {reloading, tryReload} = useRepositoryLocationReload({
     scope: 'workspace',
     reloadFn: reloadFnForWorkspace,
@@ -46,6 +49,7 @@ export const AppTopNav = ({children, allowGlobalReload = false}: Props) => {
           </ShortcutHandler>
         ) : null}
         <SearchDialog />
+        {flagMarketplace ? <MarketplaceLink /> : null}
         {children}
       </Box>
     </AppTopNavContainer>
