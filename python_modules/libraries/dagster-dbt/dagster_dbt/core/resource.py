@@ -27,7 +27,7 @@ from dbt.config.utils import parse_cli_vars
 from dbt.flags import get_flags, set_from_args
 from dbt.version import __version__ as dbt_version
 from packaging import version
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from dagster_dbt.asset_utils import (
     DAGSTER_DBT_EXCLUDE_METADATA_KEY,
@@ -223,9 +223,11 @@ class DbtCliResource(ConfigurableResource):
                 target = project_dir.target
 
             project_dir = project_dir.project_dir
+        else:
+            if state_path and not Path(state_path).is_absolute():
+                state_path = os.path.join(project_dir, state_path)
 
         project_dir = os.fspath(project_dir)
-        state_path = state_path and os.fspath(state_path)
 
         # static typing doesn't understand whats going on here, thinks these fields dont exist
         super().__init__(
@@ -326,7 +328,7 @@ class DbtCliResource(ConfigurableResource):
         return values
 
     @field_validator("state_path")
-    def validate_state_path(cls, state_path: Optional[str]) -> Optional[str]:
+    def validate_state_path(cls, state_path: Optional[str], info: ValidationInfo) -> Optional[str]:
         if state_path is None:
             return None
 
