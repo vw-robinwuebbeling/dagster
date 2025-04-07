@@ -12,7 +12,6 @@ import {
 import {useQueryPersistedState} from '../hooks/useQueryPersistedState';
 import {doesFilterArrayMatchValueArray} from '../ui/Filters/doesFilterArrayMatchValueArray';
 import {Tag} from '../ui/Filters/useDefinitionTagFilter';
-import {buildRepoAddress} from '../workspace/buildRepoAddress';
 import {RepoAddress} from '../workspace/types';
 
 type Nullable<T> = {
@@ -42,6 +41,15 @@ export type AssetFilterType = AssetFilterBaseType & {
   selectAllFilters: Array<keyof AssetFilterBaseType>;
 };
 
+const parseJSONSafely = (value: qs.ParsedQs[string] | undefined) => {
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {}
+  }
+  return undefined;
+};
+
 export const useAssetDefinitionFilterState = ({isEnabled = true}: {isEnabled?: boolean}) => {
   const [filters, setFilters] = useQueryPersistedState<AssetFilterType>({
     encode: isEnabled
@@ -56,18 +64,13 @@ export const useAssetDefinitionFilterState = ({isEnabled = true}: {isEnabled?: b
         })
       : () => ({}),
     decode: (qs) => ({
-      groups: qs.groups && isEnabled ? JSON.parse(qs.groups) : [],
-      kinds: qs.kinds && isEnabled ? JSON.parse(qs.kinds) : [],
-      changedInBranch: qs.changedInBranch && isEnabled ? JSON.parse(qs.changedInBranch) : [],
-      owners: qs.owners && isEnabled ? JSON.parse(qs.owners) : [],
-      tags: qs.tags && isEnabled ? JSON.parse(qs.tags) : [],
-      codeLocations:
-        qs.codeLocations && isEnabled
-          ? JSON.parse(qs.codeLocations).map((repo: RepoAddress) =>
-              buildRepoAddress(repo.name, repo.location),
-            )
-          : [],
-      selectAllFilters: qs.selectAllFilters ? JSON.parse(qs.selectAllFilters) : [],
+      groups: isEnabled ? parseJSONSafely(qs.groups) : [],
+      kinds: isEnabled ? parseJSONSafely(qs.kinds) : [],
+      changedInBranch: isEnabled ? parseJSONSafely(qs.changedInBranch) : [],
+      owners: isEnabled ? parseJSONSafely(qs.owners) : [],
+      tags: isEnabled ? parseJSONSafely(qs.tags) : [],
+      codeLocations: isEnabled ? parseJSONSafely(qs.codeLocations) : [],
+      selectAllFilters: isEnabled ? parseJSONSafely(qs.selectAllFilters) : [],
     }),
   });
 

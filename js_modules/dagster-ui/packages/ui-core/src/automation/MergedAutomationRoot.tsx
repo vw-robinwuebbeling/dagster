@@ -73,7 +73,12 @@ export const MergedAutomationRoot = () => {
 
   const [automationTypes, setAutomationTypes] = useQueryPersistedState<Set<AutomationType>>({
     encode: (vals) => ({automationType: vals.size ? Array.from(vals).join(',') : undefined}),
-    decode: (qs) => new Set((qs.automationType?.split(',') as AutomationType[]) || []),
+    decode: (qs) => {
+      if (typeof qs.automationType === 'string') {
+        return new Set(qs.automationType.split(',') as AutomationType[]);
+      }
+      return new Set();
+    },
   });
 
   const automationFilterState = useMemo(() => {

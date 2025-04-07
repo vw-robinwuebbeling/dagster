@@ -27,7 +27,7 @@ export const useCodeLocationPageFilters = () => {
     },
     decode: (qs) => {
       const status = Array.isArray(qs?.status) ? qs.status : [];
-      return {status};
+      return {status: status.map((s) => s as CodeLocationRowStatusType)};
     },
   });
 
