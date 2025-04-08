@@ -33,7 +33,11 @@ from dagster_dbt.asset_utils import (
     default_metadata_from_dbt_resource_props,
     get_asset_check_key_for_test,
 )
-from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator, validate_translator
+from dagster_dbt.dagster_dbt_translator import (
+    DagsterDbtTranslator,
+    DbtManifestWrapper,
+    validate_translator,
+)
 from dagster_dbt.dbt_manifest import DbtManifestParam, validate_manifest
 
 IS_DBT_CORE_VERSION_LESS_THAN_1_8_0 = version.parse(dbt_version) < version.parse("1.8.0")
@@ -52,7 +56,7 @@ class EventHistoryMetadata(NamedTuple):
 
 def _build_column_lineage_metadata(
     event_history_metadata: EventHistoryMetadata,
-    dbt_resource_props: dict[str, Any],
+    dbt_resource_props: Mapping[str, Any],
     manifest: Mapping[str, Any],
     dagster_dbt_translator: DagsterDbtTranslator,
     target_path: Optional[Path],
@@ -76,7 +80,7 @@ def _build_column_lineage_metadata(
     ):
         return {}
 
-    event_node_info: dict[str, Any] = dbt_resource_props
+    event_node_info: Mapping[str, Any] = dbt_resource_props
     unique_id: str = event_node_info["unique_id"]
 
     node_resource_type: str = event_node_info["resource_type"]
@@ -306,16 +310,12 @@ class DbtCliEventMessage:
             return
 
         dagster_dbt_translator = validate_translator(dagster_dbt_translator)
-        manifest = validate_manifest(manifest)
-
-        if not manifest:
-            logger.info(
-                "No dbt manifest was provided. Dagster events for dbt tests will not be created."
-            )
+        manifest_json = validate_manifest(manifest)
+        wrapped_manifest = DbtManifestWrapper(manifest_json, None)
 
         unique_id: str = event_node_info["unique_id"]
         invocation_id: str = self.raw_event["info"]["invocation_id"]
-        dbt_resource_props = manifest["nodes"][unique_id]
+        dbt_resource_props = wrapped_manifest.get_node(unique_id)
 
         column_schema_metadata = {}
         try:
@@ -387,7 +387,7 @@ class DbtCliEventMessage:
                             columns=column_data, parents=parent_column_data
                         ),
                         dbt_resource_props=dbt_resource_props,
-                        manifest=manifest,
+                        manifest=manifest_json,
                         dagster_dbt_translator=dagster_dbt_translator,
                         target_path=target_path,
                     )
@@ -400,8 +400,8 @@ class DbtCliEventMessage:
                     exc_info=True,
                 )
 
-            dbt_resource_props = manifest["nodes"][unique_id]
-            asset_key = dagster_dbt_translator.get_asset_key(dbt_resource_props)
+            dbt_resource_props = manifest_json["nodes"][unique_id]
+            asset_key = dagster_dbt_translator.get_asset_spec(wrapped_manifest, unique_id).key
             if context and has_asset_def:
                 yield Output(
                     value=None,
@@ -420,7 +420,7 @@ class DbtCliEventMessage:
                     },
                 )
         elif manifest and node_resource_type == NodeType.Test and is_node_finished:
-            test_resource_props = manifest["nodes"][unique_id]
+            test_resource_props = manifest_json["nodes"][unique_id]
             upstream_unique_ids: AbstractSet[str] = set(test_resource_props["depends_on"]["nodes"])
             metadata = {
                 **default_metadata,
@@ -430,7 +430,7 @@ class DbtCliEventMessage:
                 metadata["dagster_dbt/failed_row_count"] = self.raw_event["data"]["num_failures"]
 
             asset_check_key = get_asset_check_key_for_test(
-                manifest, dagster_dbt_translator, test_unique_id=unique_id
+                wrapped_manifest, dagster_dbt_translator, test_unique_id=unique_id
             )
 
             if (
@@ -499,7 +499,7 @@ class DbtCliEventMessage:
 
                 yield from self._yield_observation_events_for_test(
                     dagster_dbt_translator=dagster_dbt_translator,
-                    validated_manifest=manifest,
+                    validated_manifest=manifest_json,
                     upstream_unique_ids=upstream_unique_ids,
                     metadata=metadata,
                     description=message,

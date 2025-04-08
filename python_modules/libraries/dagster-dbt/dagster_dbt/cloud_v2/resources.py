@@ -43,7 +43,11 @@ from dagster_dbt.cloud_v2.types import (
     DbtCloudProject,
     DbtCloudWorkspaceData,
 )
-from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator, validate_opt_translator
+from dagster_dbt.dagster_dbt_translator import (
+    DagsterDbtTranslator,
+    DbtManifestWrapper,
+    validate_opt_translator,
+)
 
 DAGSTER_ADHOC_PREFIX = "DAGSTER_ADHOC_JOB__"
 DBT_CLOUD_RECONSTRUCTION_METADATA_KEY_PREFIX = "__dbt_cloud"
@@ -324,7 +328,7 @@ class DbtCloudWorkspace(ConfigurableResource):
         client = self.get_client()
         workspace_data = self.fetch_workspace_data()
         job_id = workspace_data.job_id
-        manifest = workspace_data.manifest
+        manifest_json = workspace_data.manifest
 
         assets_def: Optional[AssetsDefinition] = None
         with suppress(DagsterInvalidPropertyError):
@@ -336,6 +340,7 @@ class DbtCloudWorkspace(ConfigurableResource):
             manifest, dagster_dbt_translator = get_manifest_and_translator_from_dbt_assets(
                 [assets_def]
             )
+            manifest_json = manifest.manifest
 
             indirect_selection = os.getenv(DBT_INDIRECT_SELECTION_ENV, None)
 
@@ -366,7 +371,7 @@ class DbtCloudWorkspace(ConfigurableResource):
             job_id=job_id,
             args=full_dbt_args,
             client=client,
-            manifest=manifest,
+            manifest=manifest_json,
             dagster_dbt_translator=dagster_dbt_translator,
             context=context,
         )
@@ -413,12 +418,11 @@ class DbtCloudWorkspaceDefsLoader(StateBackedDefinitionsLoader[DbtCloudWorkspace
 
     def defs_from_state(self, state: DbtCloudWorkspaceData) -> Definitions:
         all_asset_specs, all_check_specs = build_dbt_specs(
-            manifest=state.manifest,
+            manifest=DbtManifestWrapper(state.manifest, None),
             translator=self.translator,
             select=self.select,
             exclude=self.exclude,
             io_manager_key=None,
-            project=None,
         )
 
         all_asset_specs = [

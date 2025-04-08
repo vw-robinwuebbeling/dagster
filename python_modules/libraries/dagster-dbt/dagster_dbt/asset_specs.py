@@ -4,7 +4,11 @@ from typing import Optional
 from dagster import AssetSpec
 
 from dagster_dbt.asset_utils import build_dbt_specs
-from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator, validate_translator
+from dagster_dbt.dagster_dbt_translator import (
+    DagsterDbtTranslator,
+    DbtManifestWrapper,
+    validate_translator,
+)
 from dagster_dbt.dbt_manifest import DbtManifestParam, validate_manifest
 from dagster_dbt.dbt_project import DbtProject
 
@@ -37,16 +41,15 @@ def build_dbt_asset_specs(
     Returns:
         Sequence[AssetSpec]: A list of asset specs.
     """
-    manifest = validate_manifest(manifest)
+    manifest_json = validate_manifest(manifest)
     dagster_dbt_translator = validate_translator(dagster_dbt_translator or DagsterDbtTranslator())
 
     specs, _ = build_dbt_specs(
-        manifest=manifest,
+        manifest=DbtManifestWrapper(manifest_json, project),
         translator=dagster_dbt_translator,
         select=select,
         exclude=exclude or "",
         io_manager_key=None,
-        project=project,
     )
 
     return [

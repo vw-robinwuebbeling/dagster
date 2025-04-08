@@ -17,7 +17,11 @@ from dagster_dbt.asset_utils import (
     DAGSTER_DBT_SELECT_METADATA_KEY,
     build_dbt_specs,
 )
-from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator, validate_translator
+from dagster_dbt.dagster_dbt_translator import (
+    DagsterDbtTranslator,
+    DbtManifestWrapper,
+    validate_translator,
+)
 from dagster_dbt.dbt_manifest import DbtManifestParam, validate_manifest
 from dagster_dbt.dbt_project import DbtProject
 
@@ -308,11 +312,10 @@ def dbt_assets(
 
     specs, check_specs = build_dbt_specs(
         translator=dagster_dbt_translator,
-        manifest=manifest,
+        manifest=DbtManifestWrapper(manifest, project),
         select=select,
         exclude=exclude or "",
         io_manager_key=io_manager_key,
-        project=project,
     )
 
     if op_tags and DAGSTER_DBT_SELECT_METADATA_KEY in op_tags:

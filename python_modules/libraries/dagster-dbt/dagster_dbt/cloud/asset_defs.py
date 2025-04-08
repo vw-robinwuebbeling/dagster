@@ -38,9 +38,8 @@ from dagster_dbt.asset_utils import (
 )
 from dagster_dbt.cloud.resources import DbtCloudClient, DbtCloudClientResource, DbtCloudRunStatus
 from dagster_dbt.cloud.utils import result_to_events
-from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator
+from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator, DbtManifestWrapper
 from dagster_dbt.errors import DagsterDbtCloudJobInvariantViolationError
-from dagster_dbt.utils import get_dbt_resource_props_by_dbt_unique_id_from_manifest
 
 DAGSTER_DBT_COMPILE_RUN_ID_ENV_VAR = "DBT_DAGSTER_COMPILE_RUN_ID"
 
@@ -333,12 +332,14 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
                 return self._node_info_to_auto_materialize_policy_fn(dbt_resource_props)
 
         # generate specs for each executed node
-        dbt_nodes = get_dbt_resource_props_by_dbt_unique_id_from_manifest(manifest_json)
+        # dbt_nodes = get_dbt_resource_props_by_dbt_unique_id_from_manifest(manifest_json)
+        wrapped_manifest = DbtManifestWrapper(manifest_json, None)
         specs = build_dbt_asset_specs(
             manifest=manifest_json,
             dagster_dbt_translator=CustomDagsterDbtTranslator(),
             select=" ".join(
-                f"fqn:{'.'.join(dbt_nodes[unique_id]['fqn'])}" for unique_id in executed_unique_ids
+                f"fqn:{'.'.join(wrapped_manifest.get_node(unique_id)['fqn'])}"
+                for unique_id in executed_unique_ids
             ),
         )
 
@@ -351,7 +352,7 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
             },
             metadata_by_output_name={
                 spec.key.to_python_identifier(): self._build_dbt_cloud_assets_metadata(
-                    dbt_nodes[spec.metadata[DAGSTER_DBT_UNIQUE_ID_METADATA_KEY]]
+                    wrapped_manifest.get_node(spec.metadata[DAGSTER_DBT_UNIQUE_ID_METADATA_KEY])
                 )
                 for spec in specs
             },
@@ -363,9 +364,9 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
                     spec.key.to_python_identifier(): spec.group_name for spec in specs
                 },
                 "fqns_by_output_name": {
-                    spec.key.to_python_identifier(): dbt_nodes[
+                    spec.key.to_python_identifier(): wrapped_manifest.get_node(
                         spec.metadata[DAGSTER_DBT_UNIQUE_ID_METADATA_KEY]
-                    ]["fqn"]
+                    )["fqn"]
                     for spec in specs
                 },
             },

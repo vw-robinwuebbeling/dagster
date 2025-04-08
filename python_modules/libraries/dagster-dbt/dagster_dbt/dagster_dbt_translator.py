@@ -90,22 +90,21 @@ class DagsterDbtTranslator:
 
     def get_asset_spec(
         self,
-        manifest: Mapping[str, Any],
-        dbt_nodes: Mapping[str, Any],
-        group_props: Mapping[str, Any],
-        project: Optional["DbtProject"],
-        resource_props: Mapping[str, Any],
+        manifest: "DbtManifestWrapper",
+        unique_id: str,
     ) -> AssetSpec:
         """Returns an AssetSpec representing a specific dbt resource."""
-        from dagster_dbt.dagster_dbt_translator import DbtManifestWrapper
+        # dbt_nodes = get_dbt_resource_props_by_dbt_unique_id_from_manifest(manifest)
+        group_props = {group["name"]: group for group in manifest.get_section("groups").values()}
+        resource_props = manifest.get_node(unique_id)
 
         # calculate the dependencies for the asset
-        upstream_ids = get_upstream_unique_ids(dbt_nodes, resource_props)
+        upstream_ids = get_upstream_unique_ids(manifest, resource_props)
         deps = [
             AssetDep(
-                asset=self.get_asset_key(dbt_nodes[upstream_id]),
+                asset=self.get_asset_spec(manifest, upstream_id).key,
                 partition_mapping=self.get_partition_mapping(
-                    resource_props, dbt_nodes[upstream_id]
+                    resource_props, manifest.get_node(upstream_id)
                 ),
             )
             for upstream_id in upstream_ids
@@ -140,20 +139,20 @@ class DagsterDbtTranslator:
                 }
             ),
             tags=self.get_tags(resource_props),
-            kinds={"dbt", manifest.get("metadata", {}).get("adapter_type", "dbt")},
+            kinds={"dbt", manifest.get_section("metadata").get("adapter_type", "dbt")},
             partitions_def=self.get_partitions_def(resource_props),
         )
 
         # add integration-specific metadata to the spec
         spec = spec.merge_attributes(
             metadata={
-                DAGSTER_DBT_MANIFEST_METADATA_KEY: DbtManifestWrapper(manifest=manifest),
+                DAGSTER_DBT_MANIFEST_METADATA_KEY: manifest,
                 DAGSTER_DBT_TRANSLATOR_METADATA_KEY: self,
                 DAGSTER_DBT_UNIQUE_ID_METADATA_KEY: resource_props["unique_id"],
             }
         )
         if self.settings.enable_code_references:
-            if not project:
+            if not manifest.project:
                 raise DagsterInvalidDefinitionError(
                     "enable_code_references requires a DbtProject to be supplied"
                     " to the @dbt_assets decorator."
@@ -163,7 +162,7 @@ class DagsterDbtTranslator:
                 metadata=_attach_sql_model_code_reference(
                     existing_metadata=spec.metadata,
                     dbt_resource_props=resource_props,
-                    project=project,
+                    project=manifest.project,
                 )
             )
         return spec
@@ -657,7 +656,37 @@ class DagsterDbtTranslator:
 
 @dataclass
 class DbtManifestWrapper:
+    """Wrapper around parsed DBT manifest json to provide convenient and efficient access."""
+
     manifest: Mapping[str, Any]
+    project: Optional["DbtProject"]
+
+    def get_section(self, key: str) -> Mapping[str, Any]:
+        return self.manifest.get(key, {})
+
+    def get_node(self, unique_id: str) -> Mapping[str, Any]:
+        if unique_id in self.manifest["nodes"]:
+            return self.manifest["nodes"][unique_id]
+
+        if unique_id in self.manifest["sources"]:
+            return self.manifest["sources"][unique_id]
+
+        if unique_id in self.manifest["exposures"]:
+            return self.manifest["exposures"][unique_id]
+
+        if unique_id in self.manifest["metrics"]:
+            return self.manifest["metrics"][unique_id]
+
+        if unique_id in self.manifest.get("semantic_models", {}):
+            return self.manifest["semantic_models"][unique_id]
+
+        if unique_id in self.manifest.get("saved_queries", {}):
+            return self.manifest["saved_queries"][unique_id]
+
+        if unique_id in self.manifest.get("unit_tests", {}):
+            return self.manifest["unit_tests"][unique_id]
+
+        check.failed(f"Could not find {unique_id} in dbt manifest")
 
 
 def validate_translator(dagster_dbt_translator: DagsterDbtTranslator) -> DagsterDbtTranslator:

@@ -7,7 +7,7 @@ from dagster import AssetKey
 from dagster_dbt.asset_utils import build_dbt_specs
 from dagster_dbt.cloud_v2.asset_decorator import dbt_cloud_assets
 from dagster_dbt.cloud_v2.resources import DbtCloudWorkspace
-from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator
+from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator, DbtManifestWrapper
 
 from dagster_dbt_tests.cloud_v2.conftest import get_sample_manifest_json
 
@@ -200,12 +200,11 @@ def test_selections(
 
     expected_asset_keys = {AssetKey(key) for key in expected_dbt_resource_names}
     expected_specs, _ = build_dbt_specs(
-        manifest=get_sample_manifest_json(),
+        manifest=DbtManifestWrapper(get_sample_manifest_json(), None),
         translator=DagsterDbtTranslator(),
         select=select,
         exclude=exclude,
         io_manager_key=None,
-        project=None,
     )
 
     @dbt_cloud_assets(

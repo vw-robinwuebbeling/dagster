@@ -20,7 +20,7 @@ from packaging import version
 from dagster_dbt.asset_utils import build_dbt_specs, get_asset_check_key_for_test
 from dagster_dbt.cloud_v2.client import DbtCloudWorkspaceClient
 from dagster_dbt.cloud_v2.types import DbtCloudJobRunStatusType, DbtCloudRun
-from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator
+from dagster_dbt.dagster_dbt_translator import DagsterDbtTranslator, DbtManifestWrapper
 
 IS_DBT_CORE_VERSION_LESS_THAN_1_8_0 = version.parse(dbt_version) < version.parse("1.8.0")
 if IS_DBT_CORE_VERSION_LESS_THAN_1_8_0:
@@ -123,6 +123,7 @@ class DbtCloudJobRunResults:
         has_asset_def: bool = bool(context and context.has_assets_def)
 
         run = DbtCloudRun.from_run_details(run_details=client.get_run_details(run_id=self.run_id))
+        wrapped_manifest = DbtManifestWrapper(manifest, None)
 
         invocation_id: str = self.run_results["metadata"]["invocation_id"]
         for result in self.run_results["results"]:
@@ -147,12 +148,11 @@ class DbtCloudJobRunResults:
 
             # Build the specs for the given unique ID
             asset_specs, _ = build_dbt_specs(
-                manifest=manifest,
+                manifest=wrapped_manifest,
                 translator=dagster_dbt_translator,
                 select=selector,
                 exclude="",
                 io_manager_key=None,
-                project=None,
             )
 
             if (
@@ -190,7 +190,7 @@ class DbtCloudJobRunResults:
                     metadata["dagster_dbt/failed_row_count"] = result["failures"]
 
                 asset_check_key = get_asset_check_key_for_test(
-                    manifest=manifest,
+                    manifest=wrapped_manifest,
                     dagster_dbt_translator=dagster_dbt_translator,
                     test_unique_id=unique_id,
                 )
